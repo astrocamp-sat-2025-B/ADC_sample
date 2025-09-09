@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <math.h>
 #include "pico/stdlib.h"
 #include "hardware/spi.h"
 #include "hardware/i2c.h"
@@ -34,15 +35,22 @@
 #define MCP3008_MODE_SINGLE 0b10000000    // Single-ended mode
 #define _DEBUG_MCP3008 false
 
+#define PI 3.14
+
+const float unitVectorX[4] = {0.707, -0.707, -0.707, 0.707};
+const float unitVectorY[4] = {-0.707, -0.707, 0.707, 0.707};
+
 static float Vref = 3.2562;
 
-static inline void cs_select() {
-    asm volatile("nop \n nop \n nop");
-    gpio_put(PIN_CS, 0);  // Active low
-    asm volatile("nop \n nop \n nop");
+static inline void cs_select()
+{
+  asm volatile("nop \n nop \n nop");
+  gpio_put(PIN_CS, 0);  // Active low
+  asm volatile("nop \n nop \n nop");
 }
 
-static inline void cs_deselect() {
+static inline void cs_deselect()
+{
     asm volatile("nop \n nop \n nop");
     gpio_put(PIN_CS, 1);
     asm volatile("nop \n nop \n nop");
@@ -66,60 +74,96 @@ int readADC(uint8_t ch)
     return (buffer[1] & 0b00000011) << 8 | buffer[2];
 }
 
+float light_deg()
+{
+  uint8_t raw_data[4] = {};
+  float V_x = 0;
+  float V_y = 0;
+	for(int i = 0; i < 4; i++)
+  {
+		raw_data[i] = readADC(i);
+	}
+
+  // for (uint8_t i=0; i<8; i++)
+  // {
+  //   printf("%d",raw_data[i]);
+  //   if (i < 7)
+  //     {
+  //       printf(",");
+  //     }
+  // }
+  // printf(" \n");
+  
+  for(int i = 0; i < 4; i++) {
+      V_x += raw_data[i] * unitVectorX[i];
+      V_y += raw_data[i] * unitVectorY[i];
+  }
+
+  return atan2(V_y, V_x) / PI * 180.0;
+}
+
+void print_ch_data()
+{
+    for (uint8_t i=0; i<8; i++)
+  {
+    printf("%.4f",Vref * readADC(i) / 1024);
+    if (i < 7)
+      {
+        printf(",");
+      }
+  }
+  printf(" \n");
+}
+
 int main()
 {
-    stdio_init_all();
+  stdio_init_all();
 
-    // SPI initialisation. This example will use SPI at 1MHz.
-    spi_init(SPI_PORT, 1000*1000);
-    gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
-    gpio_set_function(PIN_CS,   GPIO_FUNC_SIO);
-    gpio_set_function(PIN_SCK,  GPIO_FUNC_SPI);
-    gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
-    
-    // Chip select is active-low, so we'll initialise it to a driven-high state
-    gpio_set_dir(PIN_CS, GPIO_OUT);
-    gpio_put(PIN_CS, 1);
-    // For more examples of SPI use see https://github.com/raspberrypi/pico-examples/tree/master/spi
-
-    // I2C Initialisation. Using it at 400Khz.
-    i2c_init(I2C_PORT, 400*1000);
-    
-    gpio_set_function(I2C_SDA, GPIO_FUNC_I2C);
-    gpio_set_function(I2C_SCL, GPIO_FUNC_I2C);
-    gpio_pull_up(I2C_SDA);
-    gpio_pull_up(I2C_SCL);
-    // For more examples of I2C use see https://github.com/raspberrypi/pico-examples/tree/master/i2c
-
-    // Set up our UART
-    uart_init(UART_ID, BAUD_RATE);
-    // Set the TX and RX pins by using the function select on the GPIO
-    // Set datasheet for more information on function select
-    gpio_set_function(UART_TX_PIN, GPIO_FUNC_UART);
-    gpio_set_function(UART_RX_PIN, GPIO_FUNC_UART);
-    
-    // Use some the various UART functions to send out data
-    // In a default system, printf will also output via the default UART
-    
-    // Send out a string, with CR/LF conversions
-    uart_puts(UART_ID, " Hello, UART!\n");
-    
-    // For more examples of UART use see https://github.com/raspberrypi/pico-examples/tree/master/uart
-    printf("\nHello, MCP3008 Reading raw data from registers via SPI...\n");
-    printf("ch0 ch1 ch2 ch3 ch4 ch5 ch6 ch7\n");
-    while (1)
-    {
-        for (uint8_t i=0; i<8; i++)
-        {
-          printf("%.4f",Vref * readADC(i) / 1024);
-          if (i < 7)
-            {
-              printf(",");
-            }
-        }
-        printf(" \n");
-            
-        sleep_ms(100);
-    }
+  // SPI initialisation. This example will use SPI at 1MHz.
+  spi_init(SPI_PORT, 1000*1000);
+  gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
+  gpio_set_function(PIN_CS,   GPIO_FUNC_SIO);
+  gpio_set_function(PIN_SCK,  GPIO_FUNC_SPI);
+  gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
   
+  // Chip select is active-low, so we'll initialise it to a driven-high state
+  gpio_set_dir(PIN_CS, GPIO_OUT);
+  gpio_put(PIN_CS, 1);
+  // For more examples of SPI use see https://github.com/raspberrypi/pico-examples/tree/master/spi
+
+  // I2C Initialisation. Using it at 400Khz.
+  i2c_init(I2C_PORT, 400*1000);
+  
+  gpio_set_function(I2C_SDA, GPIO_FUNC_I2C);
+  gpio_set_function(I2C_SCL, GPIO_FUNC_I2C);
+  gpio_pull_up(I2C_SDA);
+  gpio_pull_up(I2C_SCL);
+  // For more examples of I2C use see https://github.com/raspberrypi/pico-examples/tree/master/i2c
+
+  // Set up our UART
+  uart_init(UART_ID, BAUD_RATE);
+  // Set the TX and RX pins by using the function select on the GPIO
+  // Set datasheet for more information on function select
+  gpio_set_function(UART_TX_PIN, GPIO_FUNC_UART);
+  gpio_set_function(UART_RX_PIN, GPIO_FUNC_UART);
+  
+  // Use some the various UART functions to send out data
+  // In a default system, printf will also output via the default UART
+  
+  // Send out a string, with CR/LF conversions
+  uart_puts(UART_ID, " Hello, UART!\n");
+  
+  // For more examples of UART use see https://github.com/raspberrypi/pico-examples/tree/master/uart
+  printf("\nHello, MCP3008 Reading raw data from registers via SPI...\n");
+  printf("ch0 ch1 ch2 ch3 ch4 ch5 ch6 ch7\n");
+  while (1)
+  {
+    // printf("%f\n",light_deg());
+    print_ch_data();
+          
+    sleep_ms(100);
+  }
+
+
+
 }
