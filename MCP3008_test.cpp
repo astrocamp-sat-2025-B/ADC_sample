@@ -30,6 +30,9 @@
 #define UART_TX_PIN 4
 #define UART_RX_PIN 5
 
+#define MCP3008_START_BIT 0b00000001
+#define MCP3008_MODE_SINGLE 0b10000000    // Single-ended mode
+#define _DEBUG_MCP3008 false
 
 static float Vref = 3.2562;
 
@@ -47,34 +50,13 @@ static inline void cs_deselect() {
 
 int readADC(uint8_t ch)
 {
-    uint8_t writeData[] = {0b00000001, 0x00, 0x00};
-    switch(ch){
-      case 0:
-        writeData[1] = 0b10000000; 
-      break;
-      case 1:
-        writeData[1] = 0b10010000; 
-      break;
-      case 2:
-        writeData[1] = 0b10100000; 
-      break;
-      case 3:
-        writeData[1] = 0b10110000; 
-      break;
-      case 4:
-        writeData[1] = 0b11000000; 
-      break;
-      case 5:
-        writeData[1] = 0b11010000; 
-      break;
-      case 6:
-        writeData[1] = 0b11100000; 
-      break;
-      case 7:
-        writeData[1] = 0b11110000; 
-    }
-    printf("\n %0b %0b %0b\n",writeData[0],writeData[1],writeData[2]);
-    uint8_t buffer[3];
+    uint8_t writeData[3] = {};
+    uint8_t buffer[3] = {};
+    writeData[0] = MCP3008_START_BIT;
+    writeData[1] = MCP3008_MODE_SINGLE | (ch << 4);
+#if _DEBUG_MCP3008
+    printf("\n %08b %08b %08b\n",writeData[0],writeData[1],writeData[2]);
+#endif
     cs_select();
     sleep_ms(1);
     spi_write_read_blocking(SPI_PORT, writeData, buffer, 3);
@@ -83,7 +65,6 @@ int readADC(uint8_t ch)
 
     return (buffer[1] & 0b00000011) << 8 | buffer[2];
 }
-
 
 int main()
 {
