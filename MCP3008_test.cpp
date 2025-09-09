@@ -105,18 +105,21 @@ int main()
     uart_puts(UART_ID, " Hello, UART!\n");
     
     // For more examples of UART use see https://github.com/raspberrypi/pico-examples/tree/master/uart
-
+    printf("\nHello, MCP3008 Reading raw data from registers via SPI...\n");
+    printf("ch0 ch1 ch2 ch3 ch4 ch5 ch6 ch7\n");
     while (1)
     {
-        printf("\nHello, MCP3008 Reading raw data from registers via SPI...\n");
-
         for (uint8_t i=0; i<8; i++)
         {
-            printf("ch%d is %.4fV\n", i, Vref * readADC(i) / 1024);
-            sleep_ms(10);
+          printf("%.4f",Vref * readADC(i) / 1024);
+          if (i < 7)
+            {
+              printf(",");
+            }
         }
+        printf(" \n");
             
-        sleep_ms(5000);
+        sleep_ms(100);
     }
   
 }
